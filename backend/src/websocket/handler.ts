@@ -76,15 +76,12 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
   switch (message.type) {
     case "CREATE_ROOM": {
-      const { playerName } = message;
+      const { playerName, avatar } = message;
       if (!playerName?.trim()) {
         send(ws, { type: "ERROR", message: "Player name is required." });
         return;
       }
 
-      // Default avatar – client should send avatar in a real flow;
-      // for now we assign a placeholder so the type is satisfied.
-      const avatar = { style: "bottts" as const, seed: Math.random().toString(36).slice(2) };
       const result = createRoom(playerName, avatar);
 
       playerSockets.set(result.playerId, ws);
@@ -96,13 +93,12 @@ function handleMessage(ws: WebSocket, raw: string): void {
     }
 
     case "JOIN_ROOM": {
-      const { roomId, playerName } = message;
+      const { roomId, playerName, avatar } = message;
       if (!playerName?.trim()) {
         send(ws, { type: "ERROR", message: "Player name is required." });
         return;
       }
 
-      const avatar = { style: "bottts" as const, seed: Math.random().toString(36).slice(2) };
       const result = joinRoom(roomId, playerName, avatar);
 
       if (typeof result === "string") {
@@ -165,9 +161,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
     case "SEND_REACTION": {
       if (!meta) return;
-      const { emoji } = message;
-      const ws_ = playerSockets.get(meta.playerId);
-      if (!ws_) return;
+      const { emoji, targetPlayerId } = message;
 
       const room = getRoom(meta.roomId);
       if (!room) return;
@@ -175,6 +169,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         type: "REACTION",
         playerId: meta.playerId,
         emoji,
+        targetPlayerId,
       });
       break;
     }

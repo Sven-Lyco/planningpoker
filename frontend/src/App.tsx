@@ -2,34 +2,30 @@ import styled from "@emotion/styled";
 import { GlobalStyles } from "./styles/GlobalStyles";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAppSelector } from "./store/hooks";
-import type { AppTheme } from "./styles/theme";
+import { LobbyScreen } from "./screens/LobbyScreen";
+import { GameScreen } from "./screens/GameScreen";
 
 /**
  * Root application component.
- * Initialises the WebSocket connection and renders the appropriate view
- * based on whether the player is currently in a room.
+ * Manages the WebSocket connection and routes between the lobby and game screen.
  */
 export function App() {
-  useWebSocket();
+  const { send } = useWebSocket();
   const room = useAppSelector((state) => state.room.room);
 
   return (
     <>
       <GlobalStyles />
       <AppShell>
-        {room ? (
-          <p style={{ color: "white" }}>Room: {room.id}</p>
-        ) : (
-          <p style={{ color: "white" }}>Not in a room yet.</p>
-        )}
+        {room ? <GameScreen send={send} /> : <LobbyScreen send={send} />}
       </AppShell>
     </>
   );
 }
 
-const AppShell = styled.div<{ theme?: AppTheme }>`
+const AppShell = styled.div`
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: ${({ theme }) => (theme as AppTheme).colors.background};
+  background-color: ${({ theme }) => theme.colors.background};
 `;

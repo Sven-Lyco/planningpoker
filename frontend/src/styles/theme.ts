@@ -44,3 +44,10 @@ export const theme = {
 } as const;
 
 export type AppTheme = typeof theme;
+
+// Augment Emotion's DefaultTheme so styled components receive correct types
+// without explicit casts everywhere.
+declare module "@emotion/react" {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  export interface Theme extends AppTheme {}
+}
