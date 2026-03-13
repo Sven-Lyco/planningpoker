@@ -61,8 +61,8 @@ export interface Room {
 }
 
 export type ClientMessage =
-  | { type: "CREATE_ROOM"; playerName: string }
-  | { type: "JOIN_ROOM"; roomId: string; playerName: string }
+  | { type: "CREATE_ROOM"; playerName: string; avatar: AvatarConfig }
+  | { type: "JOIN_ROOM"; roomId: string; playerName: string; avatar: AvatarConfig }
   | { type: "VOTE"; card: Card }
   | { type: "REVEAL_CARDS" }
   | { type: "NEW_VOTING" }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ClientMessage, ServerMessage } from "@planning-poker/shared";
 import { useAppDispatch } from "../store/hooks";
-import { setPlayerIdentity } from "../store/playerSlice";
+import { setPlayerId } from "../store/playerSlice";
 import { clearRoom, updateRoom } from "../store/roomSlice";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:3001/ws";
@@ -10,9 +10,8 @@ const RECONNECT_DELAY_MS = 3000;
 /**
  * Manages the WebSocket connection to the planning poker server.
  * Dispatches Redux actions on incoming messages.
- * Exposes a `send` function for outgoing messages.
  *
- * @returns `send` – function to send a typed ClientMessage to the server.
+ * @returns `send` – typed function to send a ClientMessage to the server.
  */
 export function useWebSocket() {
   const dispatch = useAppDispatch();
@@ -38,30 +37,20 @@ export function useWebSocket() {
 
       switch (message.type) {
         case "ROOM_CREATED":
-          // playerId is stored once; avatar/name will be set by the calling component
-          dispatch(
-            setPlayerIdentity({
-              playerId: message.playerId,
-              playerName: "",
-              avatar: { style: "bottts", seed: "" },
-            })
-          );
+          dispatch(setPlayerId(message.playerId));
           break;
 
         case "ROOM_UPDATED":
           dispatch(updateRoom(message.room));
           break;
 
+        // PLAYER_JOINED and CARDS_REVEALED are fully covered by ROOM_UPDATED snapshots
         case "PLAYER_JOINED":
-          // Room state is updated via ROOM_UPDATED; no separate action needed
-          break;
-
         case "CARDS_REVEALED":
-          // Reveal is reflected in the ROOM_UPDATED snapshot; handled there
           break;
 
+        // REACTION is handled by a dedicated listener added in the Reactions component
         case "REACTION":
-          // Handled by a separate reactions listener (to be added with the Reactions component)
           break;
 
         case "ERROR":

@@ -14,26 +14,32 @@ const initialState: PlayerState = {
 };
 
 /**
- * Manages the local player's identity (persisted across the session).
+ * Manages the local player's identity (name, avatar, server-assigned ID).
  */
 const playerSlice = createSlice({
   name: "player",
   initialState,
   reducers: {
     /**
-     * Stores the local player's identity after joining or creating a room.
+     * Stores name and avatar chosen in the lobby before the server assigns an ID.
      */
-    setPlayerIdentity(
+    setLocalIdentity(
       state,
-      action: PayloadAction<{ playerId: string; playerName: string; avatar: AvatarConfig }>
+      action: PayloadAction<{ playerName: string; avatar: AvatarConfig }>
     ) {
-      state.playerId = action.payload.playerId;
       state.playerName = action.payload.playerName;
       state.avatar = action.payload.avatar;
     },
 
     /**
-     * Clears player identity on disconnect.
+     * Sets the server-assigned player ID received in ROOM_CREATED.
+     */
+    setPlayerId(state, action: PayloadAction<string>) {
+      state.playerId = action.payload;
+    },
+
+    /**
+     * Clears all player identity on disconnect or leave.
      */
     clearPlayer(state) {
       state.playerId = null;
@@ -43,5 +49,5 @@ const playerSlice = createSlice({
   },
 });
 
-export const { setPlayerIdentity, clearPlayer } = playerSlice.actions;
+export const { setLocalIdentity, setPlayerId, clearPlayer } = playerSlice.actions;
 export default playerSlice.reducer;
