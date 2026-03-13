@@ -40,6 +40,7 @@ planning-poker/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── ui/              # Reusable styled components (Button, Card, Modal, …)
 │   │   │   ├── Table/           # Spieltisch + Spieler-Positionierung
 │   │   │   ├── CardDeck/        # Karten-Auswahl (unten)
 │   │   │   ├── PlayerSeat/      # Avatar + Karte + Name
@@ -226,11 +227,13 @@ const theme = {
 
 - Kein CSS-Dateien – ausschließlich **Emotion styled components**
 - Theme-Tokens immer über `useTheme()` konsumieren, keine Hardcoded Farben
+- Wiederverwendbare styled components in `frontend/src/components/ui/` – z.B. Button, Card, Badge, Modal
 
 ---
 
 ## Coding-Konventionen
 
+- **Code language: English** – all variables, functions, comments, and JSDoc in English
 - Alle Komponenten als **funktionale React Components**
 - Props immer mit TypeScript Interface typisiert
 - Redux Toolkit `createSlice` für alle Slices
