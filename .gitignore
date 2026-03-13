@@ -1,0 +1,29 @@
+# Claude Code
+.agents
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+shared/node_modules/
+
+# Build output
+frontend/dist/
+backend/dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

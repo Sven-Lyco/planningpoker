@@ -75,7 +75,19 @@ planning-poker/
 ```typescript
 type GamePhase = "waiting" | "voting" | "reveal";
 
-type Card = "0" | "1" | "2" | "3" | "5" | "8" | "13" | "21" | "34" | "55" | "89" | "?" | "☕";
+type VotingSystem = "fibonacci" | "modified-fibonacci" | "tshirts" | "powers-of-2" | "custom";
+
+// Karte ist flexibel – abhängig vom gewählten VotingSystem
+type Card = string; // z.B. "0","1","½","XS","S","M","L","XL","?","☕"
+
+// Vordefinierte Decks
+const VOTING_SYSTEMS: Record<VotingSystem, Card[]> = {
+  "fibonacci":          ["0","1","2","3","5","8","13","21","34","55","89","?","☕"],
+  "modified-fibonacci": ["0","½","1","2","3","5","8","13","20","40","100","?","☕"],
+  "tshirts":            ["XS","S","M","L","XL","?","☕"],
+  "powers-of-2":        ["0","1","2","4","8","16","32","64","?","☕"],
+  "custom":             [], // frei konfigurierbar
+};
 
 interface AvatarConfig {
   style: "adventurer" | "bottts" | "pixel-art" | "lorelei";
@@ -96,6 +108,19 @@ interface Issue {
   estimate?: string;
 }
 
+interface RoomSettings {
+  name?: string;                          // optionaler Spielname
+  facilitatorId: string;                  // wer leitet (muss nicht Ersteller sein)
+  votingSystem: VotingSystem;
+  customDeck?: Card[];                    // nur wenn votingSystem === "custom"
+  whoCanReveal: "all" | "host";
+  whoCanManageIssues: "all" | "host";
+  autoReveal: boolean;                    // Karten auto aufdecken wenn alle gevoted
+  funFeatures: boolean;                   // Projektile/Animationen
+  showAverage: boolean;                   // Durchschnitt in Ergebnissen anzeigen
+  showCountdown: boolean;                 // Countdown-Animation beim Aufdecken
+}
+
 interface Room {
   id: string;
   hostId: string;
@@ -104,6 +129,7 @@ interface Room {
   currentVotes: Record<string, Card | null>; // playerId → Card
   timer: number;
   issues: Issue[];
+  settings: RoomSettings;
 }
 ```
 
