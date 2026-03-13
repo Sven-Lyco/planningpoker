@@ -236,4 +236,26 @@ const theme = {
 - Redux Toolkit `createSlice` für alle Slices
 - WebSocket-Logik ausschließlich in `useWebSocket.ts` Hook
 - Keine direkten WebSocket-Calls in Komponenten
-- Tests in Vitest für Business Logic (roomManager, roomStore)
+- Tests in Vitest für Business Logic (roomManager, roomStore) **und** React-Komponenten
+
+### Error Handling
+
+- Validierung an WS-Boundaries (eingehende Client-Messages) und bei User-Input
+- Server antwortet mit `{ type: "ERROR"; message: string }` bei ungültigen Messages
+- Kein defensives Over-Engineering in interner Business Logic
+
+### Kommentare
+
+- **JSDoc auf allen public Interfaces und exportierten Funktionen** (Parameter, Return, Zweck)
+- Inline-Kommentare nur bei nicht-offensichtlicher Logik (Warum, nicht Was)
+- Keine Kommentare für selbsterklärenden Code
+
+### Komponenten-Größe
+
+- Eine Komponente = eine Verantwortlichkeit
+- Bei mehr als einer Verantwortlichkeit → aufteilen, unabhängig von Zeilenanzahl
+
+### Konstanten
+
+- Alle Magic Numbers und Konfigurationswerte in `shared/src/constants.ts`
+- Beispiele: Timer-Dauer, maximale Spieleranzahl, maximale Issues pro Raum
