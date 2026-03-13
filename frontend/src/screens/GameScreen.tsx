@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import type { ClientMessage } from "@planning-poker/shared";
 import { VOTING_SYSTEMS } from "@planning-poker/shared";
@@ -21,6 +21,13 @@ export function GameScreen({ send }: GameScreenProps) {
   const playerId = useAppSelector((state) => state.player.playerId);
 
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
+
+  // Reset card selection whenever a new voting round starts
+  useEffect(() => {
+    if (room?.phase === "voting") {
+      setSelectedCard(null);
+    }
+  }, [room?.phase]);
 
   if (!room || !playerId) return null;
 

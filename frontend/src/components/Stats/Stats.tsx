@@ -18,9 +18,10 @@ function computeStats(votes: Record<string, Card | null>) {
     .map((v) => parseFloat(v))
     .filter((n) => !isNaN(n));
 
-  const average = numeric.length > 0
-    ? Math.round((numeric.reduce((a, b) => a + b, 0) / numeric.length) * 10) / 10
-    : null;
+  const average =
+    numeric.length > 0
+      ? Math.round((numeric.reduce((a, b) => a + b, 0) / numeric.length) * 10) / 10
+      : null;
 
   const min = numeric.length > 0 ? Math.min(...numeric) : null;
   const max = numeric.length > 0 ? Math.max(...numeric) : null;
@@ -29,128 +30,166 @@ function computeStats(votes: Record<string, Card | null>) {
   const agreement =
     spread === null ? "🤷" : spread === 0 ? "😄" : spread <= 3 ? "🤔" : "😬";
 
-  // Vote distribution: card value → count
+  // Vote distribution: card value → count, sorted numerically then alphabetically
   const distribution: Record<string, number> = {};
   for (const v of values) {
     distribution[v] = (distribution[v] ?? 0) + 1;
   }
 
-  return { average, agreement, distribution, totalVotes: values.length };
+  const sortedEntries = Object.entries(distribution).sort(([a], [b]) => {
+    const na = parseFloat(a);
+    const nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+
+  const maxCount = Math.max(...Object.values(distribution), 1);
+
+  return { average, agreement, sortedEntries, maxCount, totalVotes: values.length };
 }
 
 /**
  * Displays voting statistics after cards are revealed.
+ * Shows vertical vote bars on the left and average/agreement on the right.
  */
 export function Stats({ votes }: StatsProps) {
-  const { average, agreement, distribution, totalVotes } = computeStats(votes);
+  const { average, agreement, sortedEntries, maxCount, totalVotes } =
+    computeStats(votes);
 
   return (
-    <StatsContainer>
-      <AgreementEmoji>{agreement}</AgreementEmoji>
-      {average !== null && (
-        <AverageRow>
-          <AverageLabel>Average</AverageLabel>
-          <AverageValue>{average}</AverageValue>
-        </AverageRow>
-      )}
-      <VoteCount>{totalVotes} vote{totalVotes !== 1 ? "s" : ""}</VoteCount>
-      <Distribution>
-        {Object.entries(distribution)
-          .sort(([a], [b]) => {
-            const na = parseFloat(a);
-            const nb = parseFloat(b);
-            if (!isNaN(na) && !isNaN(nb)) return na - nb;
-            return a.localeCompare(b);
-          })
-          .map(([card, count]) => (
-            <DistributionItem key={card}>
-              <DistributionCard>{card}</DistributionCard>
-              <DistributionBar>
-                <DistributionFill width={(count / totalVotes) * 100} />
-              </DistributionBar>
-              <DistributionCount>{count}</DistributionCount>
-            </DistributionItem>
-          ))}
-      </Distribution>
-    </StatsContainer>
+    <StatsLayout>
+      <BarsSection>
+        {sortedEntries.map(([card, count]) => (
+          <VoteBarWrapper key={card}>
+            <BarTrack>
+              <BarFill fillPct={(count / maxCount) * 100} />
+            </BarTrack>
+            <CardLabel>{card}</CardLabel>
+            <VoteLabel>
+              {count} {count === 1 ? "Vote" : "Votes"}
+            </VoteLabel>
+          </VoteBarWrapper>
+        ))}
+      </BarsSection>
+
+      <Divider />
+
+      <SidePanel>
+        {average !== null && (
+          <SideBlock>
+            <SideLabel>Average:</SideLabel>
+            <AverageValue>{average.toLocaleString("de-DE")}</AverageValue>
+          </SideBlock>
+        )}
+        <SideBlock>
+          <SideLabel>Agreement:</SideLabel>
+          <AgreementBadge>{agreement}</AgreementBadge>
+        </SideBlock>
+        <TotalVotes>
+          {totalVotes} {totalVotes === 1 ? "Vote" : "Votes"} total
+        </TotalVotes>
+      </SidePanel>
+    </StatsLayout>
   );
 }
 
-const StatsContainer = styled.div`
+const StatsLayout = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: ${({ theme }) => theme.spacing.md};
+  width: 100%;
+  justify-content: center;
+`;
+
+const BarsSection = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const VoteBarWrapper = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  width: 100%;
+  gap: 4px;
 `;
 
-const AgreementEmoji = styled.div`
-  font-size: 32px;
-  line-height: 1;
-`;
-
-const AverageRow = styled.div`
+const BarTrack = styled.div`
+  width: 40px;
+  height: 80px;
+  background: ${({ theme }) => theme.colors.card};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  overflow: hidden;
   display: flex;
-  align-items: baseline;
-  gap: ${({ theme }) => theme.spacing.sm};
+  align-items: flex-end;
 `;
 
-const AverageLabel = styled.span`
+const BarFill = styled.div<{ fillPct: number }>`
+  width: 100%;
+  height: ${({ fillPct }) => fillPct}%;
+  background: ${({ theme }) => theme.colors.primary};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  transition: height 400ms ease;
+`;
+
+const CardLabel = styled.span`
+  font-size: ${({ theme }) => theme.fontSizes.md};
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const VoteLabel = styled.span`
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
+`;
+
+const Divider = styled.div`
+  width: 1px;
+  height: 100px;
+  background: ${({ theme }) => theme.colors.card};
+  align-self: center;
+  flex-shrink: 0;
+`;
+
+const SidePanel = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding-left: ${({ theme }) => theme.spacing.sm};
+`;
+
+const SideBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const SideLabel = styled.span`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const AverageValue = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.xxl};
+  font-size: 32px;
   font-weight: 700;
-  color: ${({ theme }) => theme.colors.accent};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  line-height: 1.1;
 `;
 
-const VoteCount = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
-const Distribution = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  margin-top: ${({ theme }) => theme.spacing.xs};
-`;
-
-const DistributionItem = styled.div`
+const AgreementBadge = styled.div`
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-const DistributionCard = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  width: 28px;
-  text-align: right;
-`;
-
-const DistributionBar = styled.div`
-  flex: 1;
-  height: 8px;
-  background-color: ${({ theme }) => theme.colors.card};
+  justify-content: center;
   border-radius: ${({ theme }) => theme.radii.full};
-  overflow: hidden;
+  border: 2px solid ${({ theme }) => theme.colors.card};
 `;
 
-const DistributionFill = styled.div<{ width: number }>`
-  height: 100%;
-  width: ${({ width }) => width}%;
-  background-color: ${({ theme }) => theme.colors.primary};
-  border-radius: ${({ theme }) => theme.radii.full};
-  transition: width ${({ theme }) => theme.transitions.normal};
-`;
-
-const DistributionCount = styled.span`
+const TotalVotes = styled.span`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   color: ${({ theme }) => theme.colors.textSecondary};
-  width: 16px;
+  margin-top: ${({ theme }) => theme.spacing.xs};
 `;
