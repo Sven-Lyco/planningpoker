@@ -12,6 +12,9 @@ frontend/dist/
 backend/dist/
 shared/dist/
 
+# tsc emit artifacts (frontend uses noEmit; these should never appear)
+frontend/src/**/*.js
+
 # Environment
 .env
 .env.local
