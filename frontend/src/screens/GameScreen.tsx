@@ -61,7 +61,7 @@ export function GameScreen({ send }: GameScreenProps) {
       </MainArea>
 
       <BottomBar>
-        {room.settings.funFeatures && <ReactionBar send={send} />}
+        {(room.settings?.funFeatures ?? true) && <ReactionBar send={send} />}
         {room.phase === "voting" && (
           <CardDeck
             cards={activeDeck}

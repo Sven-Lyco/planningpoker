@@ -30,6 +30,7 @@ const Bar = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing.xs};
   align-items: center;
+  padding: ${({ theme }) => theme.spacing.sm} 0;
 `;
 
 const EmojiButton = styled.button`
