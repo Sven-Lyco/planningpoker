@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { attachWebSocketHandler } from "./websocket/handler";
+import logger from "./logger";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
@@ -19,6 +20,6 @@ const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 attachWebSocketHandler(wss);
 
 httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`WebSocket listening on ws://localhost:${PORT}/ws`);
+  logger.info({ port: PORT }, "HTTP server started");
+  logger.info({ port: PORT, path: "/ws" }, "WebSocket server started");
 });
