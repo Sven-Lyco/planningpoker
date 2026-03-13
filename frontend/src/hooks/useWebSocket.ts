@@ -3,6 +3,7 @@ import type { ClientMessage, ServerMessage } from "@planning-poker/shared";
 import { useAppDispatch } from "../store/hooks";
 import { setPlayerId } from "../store/playerSlice";
 import { clearRoom, updateRoom } from "../store/roomSlice";
+import { addReaction } from "../store/reactionsSlice";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:3001/ws";
 const RECONNECT_DELAY_MS = 3000;
@@ -49,8 +50,14 @@ export function useWebSocket() {
         case "CARDS_REVEALED":
           break;
 
-        // REACTION is handled by a dedicated listener added in the Reactions component
         case "REACTION":
+          dispatch(
+            addReaction({
+              id: `${message.playerId}-${Date.now()}`,
+              emoji: message.emoji,
+              playerId: message.playerId,
+            })
+          );
           break;
 
         case "ERROR":

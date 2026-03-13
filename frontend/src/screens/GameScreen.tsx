@@ -6,6 +6,8 @@ import { useAppSelector } from "../store/hooks";
 import { Header } from "../components/Header/Header";
 import { Table } from "../components/Table/Table";
 import { CardDeck } from "../components/CardDeck/CardDeck";
+import { Reactions } from "../components/Reactions/Reactions";
+import { ReactionBar } from "../components/Reactions/ReactionBar";
 
 interface GameScreenProps {
   send: (message: ClientMessage) => void;
@@ -13,7 +15,7 @@ interface GameScreenProps {
 
 /**
  * Main game screen shown when the player is in a room.
- * Renders the header, table, and card deck based on the current game phase.
+ * Renders the header, table, card deck, and reaction overlay.
  */
 export function GameScreen({ send }: GameScreenProps) {
   const room = useAppSelector((state) => state.room.room);
@@ -49,6 +51,7 @@ export function GameScreen({ send }: GameScreenProps) {
       <Header room={room} currentPlayer={currentPlayer} />
 
       <MainArea>
+        <Reactions />
         <Table
           room={room}
           currentPlayerId={playerId}
@@ -57,13 +60,16 @@ export function GameScreen({ send }: GameScreenProps) {
         />
       </MainArea>
 
-      {room.phase === "voting" && (
-        <CardDeck
-          cards={activeDeck}
-          selectedCard={selectedCard}
-          onSelect={handleCardSelect}
-        />
-      )}
+      <BottomBar>
+        {room.settings.funFeatures && <ReactionBar send={send} />}
+        {room.phase === "voting" && (
+          <CardDeck
+            cards={activeDeck}
+            selectedCard={selectedCard}
+            onSelect={handleCardSelect}
+          />
+        )}
+      </BottomBar>
     </Screen>
   );
 }
@@ -79,4 +85,11 @@ const MainArea = styled.main`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+`;
+
+const BottomBar = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `;
