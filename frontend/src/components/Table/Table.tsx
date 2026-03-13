@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import type { Room } from "@planning-poker/shared";
+import type { ClientMessage, Room } from "@planning-poker/shared";
 import { PlayerSeat } from "../PlayerSeat/PlayerSeat";
 import { Stats } from "../Stats/Stats";
 import { Button } from "../ui/Button";
@@ -9,13 +9,15 @@ interface TableProps {
   currentPlayerId: string;
   onReveal: () => void;
   onNewVoting: () => void;
+  /** When provided and funFeatures is enabled, players get a hover reaction bar. */
+  send?: (message: ClientMessage) => void;
 }
 
 /**
  * Renders the poker table with players arranged around it and a context-aware center panel.
  * Current player is always placed in the bottom row.
  */
-export function Table({ room, currentPlayerId, onReveal, onNewVoting }: TableProps) {
+export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: TableProps) {
   const { players, phase, currentVotes, settings } = room;
 
   // Separate current player from others
@@ -42,6 +44,7 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting }: TablePro
             vote={currentVotes[p.id]}
             isRevealed={phase === "reveal"}
             isCurrentPlayer={false}
+            send={send}
           />
         ))}
       </PlayerRow>
@@ -100,6 +103,7 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting }: TablePro
             vote={currentVotes[p.id]}
             isRevealed={phase === "reveal"}
             isCurrentPlayer={false}
+            send={send}
           />
         ))}
         {currentPlayer && (

@@ -1,6 +1,7 @@
 import styled from "@emotion/styled";
-import type { Player } from "@planning-poker/shared";
+import type { ClientMessage, Player } from "@planning-poker/shared";
 import { Avatar } from "../ui/Avatar";
+import { ReactionBar } from "../Reactions/ReactionBar";
 
 interface PlayerSeatProps {
   player: Player;
@@ -10,26 +11,63 @@ interface PlayerSeatProps {
   isRevealed: boolean;
   /** Whether this is the local player. */
   isCurrentPlayer: boolean;
+  /** If provided, a reaction bar appears on hover so the local player can throw emojis. */
+  send?: (message: ClientMessage) => void;
 }
 
 /**
  * Displays a player's avatar, name, and vote status at the table.
+ * When `send` is provided and this is not the current player, hovering
+ * shows a reaction bar to throw emojis at this player.
  */
-export function PlayerSeat({ player, vote, isRevealed, isCurrentPlayer }: PlayerSeatProps) {
+export function PlayerSeat({ player, vote, isRevealed, isCurrentPlayer, send }: PlayerSeatProps) {
   const cardLabel = isRevealed ? (vote ?? "–") : player.hasVoted ? "✓" : "?";
   const cardActive = isRevealed ? true : player.hasVoted;
+  const canReact = !isCurrentPlayer && send != null;
 
   return (
-    <Seat isCurrentPlayer={isCurrentPlayer}>
-      <CardChip active={cardActive} revealed={isRevealed}>
-        {cardLabel}
-      </CardChip>
-      <Avatar config={player.avatar} size={44} />
-      <PlayerName isCurrentPlayer={isCurrentPlayer}>{player.name}</PlayerName>
-      {player.isHost && <HostBadge>Host</HostBadge>}
-    </Seat>
+    <SeatWrapper data-player-id={player.id}>
+      {canReact && (
+        <ReactionBarWrapper data-reaction-bar>
+          <ReactionBar targetPlayerId={player.id} send={send!} />
+        </ReactionBarWrapper>
+      )}
+      <Seat isCurrentPlayer={isCurrentPlayer}>
+        <CardChip active={cardActive} revealed={isRevealed}>
+          {cardLabel}
+        </CardChip>
+        <Avatar config={player.avatar} size={44} />
+        <PlayerName isCurrentPlayer={isCurrentPlayer}>{player.name}</PlayerName>
+        {player.isHost && <HostBadge>Host</HostBadge>}
+      </Seat>
+    </SeatWrapper>
   );
 }
+
+const SeatWrapper = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  &:hover [data-reaction-bar] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+`;
+
+const ReactionBarWrapper = styled.div`
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  white-space: nowrap;
+  padding-bottom: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity ${({ theme }) => theme.transitions.fast};
+`;
 
 const Seat = styled.div<{ isCurrentPlayer: boolean }>`
   display: flex;

@@ -161,9 +161,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
     case "SEND_REACTION": {
       if (!meta) return;
-      const { emoji } = message;
-      const ws_ = playerSockets.get(meta.playerId);
-      if (!ws_) return;
+      const { emoji, targetPlayerId } = message;
 
       const room = getRoom(meta.roomId);
       if (!room) return;
@@ -171,6 +169,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         type: "REACTION",
         playerId: meta.playerId,
         emoji,
+        targetPlayerId,
       });
       break;
     }

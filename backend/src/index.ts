@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { attachWebSocketHandler } from "./websocket/handler";
+import { getEmojis } from "./routes/emojis";
 import logger from "./logger";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
@@ -13,6 +14,9 @@ app.use(express.json());
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+/** Emoji groups for the reaction picker. */
+app.get("/api/emojis", getEmojis);
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer, path: "/ws" });

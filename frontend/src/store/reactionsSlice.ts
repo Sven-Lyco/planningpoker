@@ -6,8 +6,8 @@ export interface ActiveReaction {
   emoji: string;
   /** ID of the player who sent the reaction. */
   playerId: string;
-  /** Horizontal position as a percentage (0–100) for varied placement. */
-  xPercent: number;
+  /** ID of the player this reaction is aimed at. */
+  targetPlayerId: string;
 }
 
 interface ReactionsState {
@@ -28,11 +28,8 @@ const reactionsSlice = createSlice({
     /**
      * Adds a new reaction to the animation queue.
      */
-    addReaction(state, action: PayloadAction<Omit<ActiveReaction, "xPercent">>) {
-      state.active.push({
-        ...action.payload,
-        xPercent: 20 + Math.random() * 60, // keep away from edges
-      });
+    addReaction(state, action: PayloadAction<ActiveReaction>) {
+      state.active.push(action.payload);
     },
 
     /**

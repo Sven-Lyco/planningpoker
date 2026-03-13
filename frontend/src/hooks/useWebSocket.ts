@@ -56,6 +56,7 @@ export function useWebSocket() {
               id: `${message.playerId}-${Date.now()}`,
               emoji: message.emoji,
               playerId: message.playerId,
+              targetPlayerId: message.targetPlayerId,
             })
           );
           break;

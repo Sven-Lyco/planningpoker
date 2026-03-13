@@ -7,7 +7,6 @@ import { Header } from "../components/Header/Header";
 import { Table } from "../components/Table/Table";
 import { CardDeck } from "../components/CardDeck/CardDeck";
 import { Reactions } from "../components/Reactions/Reactions";
-import { ReactionBar } from "../components/Reactions/ReactionBar";
 
 interface GameScreenProps {
   send: (message: ClientMessage) => void;
@@ -57,11 +56,11 @@ export function GameScreen({ send }: GameScreenProps) {
           currentPlayerId={playerId}
           onReveal={handleReveal}
           onNewVoting={handleNewVoting}
+          send={send}
         />
       </MainArea>
 
       <BottomBar>
-        {(room.settings?.funFeatures ?? true) && <ReactionBar send={send} />}
         {room.phase === "voting" && (
           <CardDeck
             cards={activeDeck}
@@ -84,7 +83,7 @@ const MainArea = styled.main`
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 `;
 
