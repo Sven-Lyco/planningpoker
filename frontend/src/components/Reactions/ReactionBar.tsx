@@ -99,7 +99,7 @@ function EmojiPicker({ pos, onSelect, onClose }: EmojiPickerProps) {
 
   const searchTerm = search.trim().toLowerCase();
   const filtered: EmojiItem[] | null = searchTerm && groups
-    ? groups.flatMap((g) => g.emojis).filter((e) => e.name.includes(searchTerm))
+    ? groups.flatMap((g) => g.emojis).filter((e) => e.name.toLowerCase().includes(searchTerm))
     : null;
 
   const transform = pos.flipDown
