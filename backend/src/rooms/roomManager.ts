@@ -1,17 +1,15 @@
 import { randomUUID } from "crypto";
 import {
   VOTING_SYSTEMS,
+  MAX_ISSUES,
+  MAX_PLAYER_NAME_LENGTH,
+  MAX_PLAYERS,
   type AvatarConfig,
   type Card,
   type Player,
   type Room,
   type RoomSettings,
 } from "@planning-poker/shared";
-import {
-  MAX_ISSUES,
-  MAX_PLAYER_NAME_LENGTH,
-  MAX_PLAYERS,
-} from "@planning-poker/shared/src/constants";
 import { deleteRoom, getRoom, saveRoom } from "./roomStore";
 
 // --- Types ---

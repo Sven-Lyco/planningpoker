@@ -10,6 +10,7 @@ shared/node_modules/
 # Build output
 frontend/dist/
 backend/dist/
+shared/dist/
 
 # Environment
 .env
