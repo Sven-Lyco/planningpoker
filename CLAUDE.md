@@ -27,6 +27,7 @@ Kein Datenbankzustand – alles In-Memory auf dem Server.
 ### Shared (`/shared`)
 
 - `types.ts` – gemeinsame TypeScript Interfaces für Frontend + Backend
+- `constants.ts` – MAX_PLAYERS, MAX_ISSUES, etc.
 
 ---
 
@@ -36,34 +37,42 @@ Kein Datenbankzustand – alles In-Memory auf dem Server.
 planning-poker/
 ├── CLAUDE.md
 ├── shared/
-│   └── types.ts
+│   └── src/
+│       ├── types.ts             # alle gemeinsamen TS Interfaces + ClientMessage/ServerMessage
+│       ├── constants.ts         # MAX_PLAYERS, MAX_ISSUES, etc.
+│       └── index.ts             # Re-exports
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── ui/              # Reusable styled components (Button, Card, Modal, …)
 │   │   │   ├── Table/           # Spieltisch + Spieler-Positionierung
 │   │   │   ├── CardDeck/        # Karten-Auswahl (unten)
-│   │   │   ├── PlayerSeat/      # Avatar + Karte + Name
-│   │   │   ├── Header/          # Timer, Avatar-Dropdown, Invite-Button
-│   │   │   ├── Sidebar/         # Issues-Liste
-│   │   │   ├── Stats/           # Average, Agreement nach Reveal
-│   │   │   └── Reactions/       # Emoji-Reaktionen animiert
+│   │   │   ├── PlayerSeat/      # Avatar + Karte + Name + ReactionBar-Hover
+│   │   │   ├── Header/          # Invite-Button (Timer/Avatar-Dropdown noch offen)
+│   │   │   ├── Sidebar/         # Issues-Liste (noch nicht implementiert)
+│   │   │   ├── Stats/           # Vertikale Balken + Average + Agreement nach Reveal
+│   │   │   └── Reactions/       # ReactionBar.tsx (Hover-Bar + Picker) + Reactions.tsx (Animationen)
 │   │   ├── store/
 │   │   │   ├── roomSlice.ts
 │   │   │   ├── playerSlice.ts
+│   │   │   ├── reactionsSlice.ts
 │   │   │   └── index.ts
 │   │   ├── hooks/
-│   │   │   └── useWebSocket.ts
-│   │   ├── types/
-│   │   │   └── index.ts
+│   │   │   ├── useWebSocket.ts  # WS-Verbindung + Redux-Dispatch
+│   │   │   └── useEmojiGroups.ts # Emoji-Daten vom Server (gecacht, einmaliger Fetch)
+│   │   ├── screens/
+│   │   │   ├── LobbyScreen.tsx
+│   │   │   └── GameScreen.tsx
 │   │   └── styles/
 │   │       └── theme.ts         # Emotion Theme Tokens
-│   └── vite.config.ts
+│   └── vite.config.ts           # Vite + /api Proxy zu Backend (dev)
 └── backend/
     └── src/
         ├── rooms/
         │   ├── roomStore.ts     # In-Memory Store (Map<roomId, Room>)
         │   └── roomManager.ts   # Business Logic
+        ├── routes/
+        │   └── emojis.ts        # GET /api/emojis – Emoji-Gruppen aus unicode-emoji-json
         ├── websocket/
         │   └── handler.ts       # WS Message Handler
         └── index.ts             # Express + WS Server
@@ -71,23 +80,50 @@ planning-poker/
 
 ---
 
-## Datenmodell (`shared/types.ts`)
+## Implementierungsstand
+
+### ✅ Fertig
+
+- Lobby (Name + Avatar wählen, Raum erstellen/joinen per Link)
+- Spielphasen: waiting → voting → reveal → new round
+- Karten-Deck (Fibonacci default, mehrere VotingSystems im Backend)
+- Reveal-Statistiken: vertikale Stimmenbalken pro Karte, Average, Agreement-Emoji
+- Emoji-Reaktionen: Hover-Bar über Spieler (CSS :hover), 4 Slots + Picker
+- Emoji-Picker: Daten vom Backend (unicode-emoji-json), Name-Suche, Portal-Rendering
+- Physik-Animation: Arc-Flug → Impact/Squash → Bounce → Fall
+- `funFeatures`-Flag in RoomSettings (steuert Reaktions-Feature)
+- `UPDATE_SETTINGS` WS-Message + Backend-Handler
+
+### ❌ Noch offen (Reihenfolge nach Priorität)
+
+1. **Settings Modal** – VotingSystem-Picker, whoCanReveal, autoReveal, showAverage, showCountdown, funFeatures-Toggle; `UPDATE_SETTINGS` ist im Backend bereits implementiert
+2. **Sidebar** – einklappbare Issues-Liste; `ADD_ISSUE` ist im Backend bereits implementiert
+3. **Avatar Dropdown** – im Header: Name + Avatar ändern
+4. **Timer** – im Header anzeigen; `timer`-Feld existiert auf `Room` im Backend
+5. **Custom Deck** – UI für eigene Kartenwerte wenn `votingSystem === "custom"`
+6. **React Component Tests** – Vitest für Komponenten (laut Coding-Konventionen gefordert)
+
+### 🐛 Bekannte Bugs
+
+- **Reaktionsbar in Firefox** – funktioniert in Chrome, nicht in Firefox; Hard-Reload hat nicht geholfen; Root Cause unbekannt
+
+---
+
+## Datenmodell (`shared/src/types.ts`)
 
 ```typescript
 type GamePhase = "waiting" | "voting" | "reveal";
 
 type VotingSystem = "fibonacci" | "modified-fibonacci" | "tshirts" | "powers-of-2" | "custom";
 
-// Karte ist flexibel – abhängig vom gewählten VotingSystem
 type Card = string; // z.B. "0","1","½","XS","S","M","L","XL","?","☕"
 
-// Vordefinierte Decks
 const VOTING_SYSTEMS: Record<VotingSystem, Card[]> = {
   "fibonacci":          ["0","1","2","3","5","8","13","21","34","55","89","?","☕"],
   "modified-fibonacci": ["0","½","1","2","3","5","8","13","20","40","100","?","☕"],
   "tshirts":            ["XS","S","M","L","XL","?","☕"],
   "powers-of-2":        ["0","1","2","4","8","16","32","64","?","☕"],
-  "custom":             [], // frei konfigurierbar
+  "custom":             [],
 };
 
 interface AvatarConfig {
@@ -110,16 +146,16 @@ interface Issue {
 }
 
 interface RoomSettings {
-  name?: string;                          // optionaler Spielname
-  facilitatorId: string;                  // wer leitet (muss nicht Ersteller sein)
+  name?: string;
+  facilitatorId: string;
   votingSystem: VotingSystem;
-  customDeck?: Card[];                    // nur wenn votingSystem === "custom"
+  customDeck?: Card[];
   whoCanReveal: "all" | "host";
   whoCanManageIssues: "all" | "host";
-  autoReveal: boolean;                    // Karten auto aufdecken wenn alle gevoted
-  funFeatures: boolean;                   // Projektile/Animationen
-  showAverage: boolean;                   // Durchschnitt in Ergebnissen anzeigen
-  showCountdown: boolean;                 // Countdown-Animation beim Aufdecken
+  autoReveal: boolean;
+  funFeatures: boolean;
+  showAverage: boolean;
+  showCountdown: boolean;
 }
 
 interface Room {
@@ -142,13 +178,14 @@ interface Room {
 
 ```typescript
 type ClientMessage =
-  | { type: "CREATE_ROOM"; playerName: string }
-  | { type: "JOIN_ROOM"; roomId: string; playerName: string }
+  | { type: "CREATE_ROOM"; playerName: string; avatar: AvatarConfig }
+  | { type: "JOIN_ROOM"; roomId: string; playerName: string; avatar: AvatarConfig }
   | { type: "VOTE"; card: Card }
-  | { type: "REVEAL_CARDS" } // nur Host
-  | { type: "NEW_VOTING" } // nur Host
-  | { type: "SEND_REACTION"; emoji: string }
-  | { type: "ADD_ISSUE"; title: string };
+  | { type: "REVEAL_CARDS" }
+  | { type: "NEW_VOTING" }
+  | { type: "SEND_REACTION"; emoji: string; targetPlayerId: string }
+  | { type: "ADD_ISSUE"; title: string }
+  | { type: "UPDATE_SETTINGS"; settings: Partial<RoomSettings> };
 ```
 
 ### Server → Client
@@ -159,7 +196,7 @@ type ServerMessage =
   | { type: "ROOM_UPDATED"; room: Room }
   | { type: "PLAYER_JOINED"; player: Player }
   | { type: "CARDS_REVEALED"; votes: Record<string, Card> }
-  | { type: "REACTION"; playerId: string; emoji: string }
+  | { type: "REACTION"; playerId: string; emoji: string; targetPlayerId: string }
   | { type: "ERROR"; message: string };
 ```
 
@@ -170,7 +207,7 @@ type ServerMessage =
 ### Rollen
 
 - **Host:** Erstellt Raum, gibt Namen ein, wählt Avatar aus, startet/beendet Voting, startet neue Runde, wählt Karte
-- **Spieler:** Joint per Invite-Link, gibt Namen ein, wählt Avatar aus,wählt Karte
+- **Spieler:** Joint per Invite-Link, gibt Namen ein, wählt Avatar aus, wählt Karte
 
 ### Spielphasen
 
@@ -178,23 +215,20 @@ type ServerMessage =
 2. **voting** – Alle wählen verdeckt eine Karte; Panel zeigt "Pick your cards!"
 3. **reveal** – Alle Karten aufgedeckt; Statistiken sichtbar; Host kann "Start new voting"
 
-### Karten-Deck
-
-`0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, ?, ☕`
-
 ### Statistiken (nach Reveal)
 
+- Vertikale Balken pro Kartenwert (Höhe = proportionale Stimmenzahl)
 - Average (Durchschnitt numerischer Votes)
-- Anzahl Votes
-- Agreement-Emoji (😄 = alle gleich, 😬 = sehr unterschiedlich)
+- Anzahl Votes gesamt
+- Agreement-Emoji (😄 = alle gleich, 🤔 = Spread ≤ 3, 😬 = großer Spread)
 
 ### UI-Bereiche
 
-- **Header:** Timer, eigener Avatar + Dropdown, "Invite players" Button, Sidebar-Toggle
-- **Spielfeld:** Spieler rund um virtuellen Tisch (oben/unten/links/rechts), zentrales Status-Panel
-- **Karten-Auswahl:** Fibonacci-Karten unten, auswählbar
-- **Sidebar:** Issues-Liste, einklappbar
-- **Reaktionen:** Emoji-Reaktionen, animiert über Tisch fliegend
+- **Header:** Invite-Button (Timer + Avatar-Dropdown noch offen)
+- **Spielfeld:** Spieler rund um virtuellen Tisch, zentrales Status-Panel
+- **Karten-Auswahl:** Karten unten, auswählbar
+- **Sidebar:** Issues-Liste, einklappbar (noch nicht implementiert)
+- **Reaktionen:** Emoji-Bar erscheint beim Hover über andere Spieler; Emoji fliegt zum Ziel mit Physik-Animation
 
 ### Avatare
 
@@ -212,11 +246,11 @@ type ServerMessage =
 const theme = {
   colors: {
     background: "#0F0E17", // Tiefes Indigo
-    surface: "#1E1B2E", // Weiches Lila-Dunkel
-    card: "#2D2640", // Midnight Purple
-    primary: "#7C3AED", // Lebendiges Violett
-    accent: "#06D6A0", // Cyan / Mint
-    warning: "#FF6B35", // Warm Orange
+    surface: "#1E1B2E",    // Weiches Lila-Dunkel
+    card: "#2D2640",       // Midnight Purple
+    primary: "#7C3AED",    // Lebendiges Violett
+    accent: "#06D6A0",     // Cyan / Mint
+    warning: "#FF6B35",    // Warm Orange
     textPrimary: "#FFFFFE", // Warm White
     textSecondary: "#A9A4C0" // Lavender
   }
