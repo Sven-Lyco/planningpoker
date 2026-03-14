@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import type { ClientMessage, Room } from "@planning-poker/shared";
+import type { ClientMessage, Player, Room } from "@planning-poker/shared";
 import { PlayerSeat } from "../PlayerSeat/PlayerSeat";
 import { Stats } from "../Stats/Stats";
 import { Button } from "../ui/Button";
@@ -13,6 +13,32 @@ interface TableProps {
   send?: (message: ClientMessage) => void;
 }
 
+interface DistributedPlayers {
+  top: Player[];
+  left: Player[];
+  right: Player[];
+  bottom: Player[];
+}
+
+/**
+ * Distributes players around the four sides of the table.
+ * Side columns grow for larger groups; top/bottom fill the rest symmetrically.
+ */
+function distributeAroundTable(others: Player[]): DistributedPlayers {
+  const n = others.length;
+  // Allow up to 3 players per side column, one side slot per 4 total players
+  const sideCount = Math.min(3, Math.floor(n / 4));
+  const remaining = n - 2 * sideCount;
+  const topCount = Math.ceil(remaining / 2);
+
+  return {
+    top:    others.slice(0, topCount),
+    left:   others.slice(topCount, topCount + sideCount),
+    right:  others.slice(topCount + sideCount, topCount + 2 * sideCount),
+    bottom: others.slice(topCount + 2 * sideCount),
+  };
+}
+
 /**
  * Renders the poker table with players arranged around it and a context-aware center panel.
  * Current player is always placed in the bottom row.
@@ -20,42 +46,41 @@ interface TableProps {
 export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: TableProps) {
   const { players, phase, currentVotes, settings } = room;
 
-  // Separate current player from others
   const currentPlayer = players.find((p) => p.id === currentPlayerId) ?? null;
   const otherPlayers = players.filter((p) => p.id !== currentPlayerId);
-
-  // Split others: first half top, second half bottom-sides
-  const half = Math.ceil(otherPlayers.length / 2);
-  const topPlayers = otherPlayers.slice(0, half);
-  const bottomSidePlayers = otherPlayers.slice(half);
+  const { top, left, right, bottom } = distributeAroundTable(otherPlayers);
 
   const isFacilitator = currentPlayerId === settings.facilitatorId;
   const canReveal =
     phase === "voting" &&
     (settings.whoCanReveal === "all" || isFacilitator);
 
+  const renderSeat = (p: Player) => (
+    <PlayerSeat
+      key={p.id}
+      player={p}
+      vote={currentVotes[p.id]}
+      isRevealed={phase === "reveal"}
+      isCurrentPlayer={false}
+      send={send}
+    />
+  );
+
   return (
     <TableContainer>
-      <PlayerRow>
-        {topPlayers.map((p) => (
-          <PlayerSeat
-            key={p.id}
-            player={p}
-            vote={currentVotes[p.id]}
-            isRevealed={phase === "reveal"}
-            isCurrentPlayer={false}
-            send={send}
-          />
-        ))}
-      </PlayerRow>
+      <PlayerRow>{top.map(renderSeat)}</PlayerRow>
 
       <MiddleRow>
+        <SideColumn>{left.map(renderSeat)}</SideColumn>
+
         <TableOval>
           <TableContent>
             {phase === "waiting" && (
               <>
                 <PhaseTitle>Waiting for players</PhaseTitle>
-                <PhaseSubtitle>{players.length} player{players.length !== 1 ? "s" : ""} joined</PhaseSubtitle>
+                <PhaseSubtitle>
+                  {players.length} player{players.length !== 1 ? "s" : ""} joined
+                </PhaseSubtitle>
                 {isFacilitator && (
                   <Button onClick={onNewVoting} size="md" style={{ marginTop: 12 }}>
                     Start Voting
@@ -85,7 +110,12 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: Ta
               <>
                 <Stats votes={currentVotes} />
                 {isFacilitator && (
-                  <Button onClick={onNewVoting} size="md" variant="secondary" style={{ marginTop: 12 }}>
+                  <Button
+                    onClick={onNewVoting}
+                    size="md"
+                    variant="secondary"
+                    style={{ marginTop: 12 }}
+                  >
                     New round
                   </Button>
                 )}
@@ -93,19 +123,12 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: Ta
             )}
           </TableContent>
         </TableOval>
+
+        <SideColumn>{right.map(renderSeat)}</SideColumn>
       </MiddleRow>
 
       <PlayerRow>
-        {bottomSidePlayers.map((p) => (
-          <PlayerSeat
-            key={p.id}
-            player={p}
-            vote={currentVotes[p.id]}
-            isRevealed={phase === "reveal"}
-            isCurrentPlayer={false}
-            send={send}
-          />
-        ))}
+        {bottom.map(renderSeat)}
         {currentPlayer && (
           <PlayerSeat
             player={currentPlayer}
@@ -143,8 +166,18 @@ const MiddleRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: ${({ theme }) => theme.spacing.lg};
   flex: 1;
   width: 100%;
+`;
+
+const SideColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.lg};
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
 `;
 
 const TableOval = styled.div`
