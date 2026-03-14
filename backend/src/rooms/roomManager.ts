@@ -2,15 +2,20 @@ import { randomUUID } from "crypto";
 import {
   VOTING_SYSTEMS,
   MAX_ISSUES,
+  MAX_ISSUE_TITLE_LENGTH,
   MAX_PLAYER_NAME_LENGTH,
   MAX_PLAYERS,
+  MAX_CUSTOM_DECK_SIZE,
+  MAX_CARD_LENGTH,
+  MAX_GAME_NAME_LENGTH,
   type AvatarConfig,
   type Card,
   type Player,
   type Room,
   type RoomSettings,
+  type VotingSystem,
 } from "@planning-poker/shared";
-import { deleteRoom, getRoom, saveRoom } from "./roomStore";
+import { deleteRoom, getRoom, getRoomCount, saveRoom, MAX_ROOMS } from "./roomStore";
 
 // --- Types ---
 
@@ -68,7 +73,9 @@ export function getActiveDeck(settings: RoomSettings): Card[] {
 export function createRoom(
   playerName: string,
   avatar: AvatarConfig
-): CreateRoomResult {
+): CreateRoomResult | string {
+  if (getRoomCount() >= MAX_ROOMS) return "Server is at capacity. Please try again later.";
+
   const playerId = randomUUID();
   const roomId = randomUUID().slice(0, 8).toUpperCase();
 
@@ -298,11 +305,14 @@ export function addIssue(
   if (!canManage) return "Only the facilitator can manage issues.";
   if (room.issues.length >= MAX_ISSUES) return "Issue limit reached.";
 
+  const trimmedTitle = title.trim().slice(0, MAX_ISSUE_TITLE_LENGTH);
+  if (!trimmedTitle) return "Issue title is required.";
+
   const updated: Room = {
     ...room,
     issues: [
       ...room.issues,
-      { id: randomUUID(), title: title.trim() },
+      { id: randomUUID(), title: trimmedTitle },
     ],
   };
 
@@ -311,6 +321,48 @@ export function addIssue(
 }
 
 // --- Settings ---
+
+const VALID_VOTING_SYSTEMS: VotingSystem[] = [
+  "fibonacci",
+  "modified-fibonacci",
+  "tshirts",
+  "powers-of-2",
+  "custom",
+];
+
+/**
+ * Strips unknown keys and validates values in a settings patch.
+ * Prevents injection of arbitrary fields or out-of-range values.
+ * @param patch - Raw partial settings from the client.
+ */
+function sanitizeSettingsPatch(patch: Partial<RoomSettings>): Partial<RoomSettings> {
+  const safe: Partial<RoomSettings> = {};
+
+  if (patch.name !== undefined && typeof patch.name === "string") {
+    safe.name = patch.name.trim().slice(0, MAX_GAME_NAME_LENGTH);
+  }
+  if (patch.votingSystem !== undefined && VALID_VOTING_SYSTEMS.includes(patch.votingSystem)) {
+    safe.votingSystem = patch.votingSystem;
+  }
+  if (patch.whoCanReveal === "all" || patch.whoCanReveal === "host") {
+    safe.whoCanReveal = patch.whoCanReveal;
+  }
+  if (patch.whoCanManageIssues === "all" || patch.whoCanManageIssues === "host") {
+    safe.whoCanManageIssues = patch.whoCanManageIssues;
+  }
+  if (typeof patch.autoReveal === "boolean") safe.autoReveal = patch.autoReveal;
+  if (typeof patch.funFeatures === "boolean") safe.funFeatures = patch.funFeatures;
+  if (typeof patch.showAverage === "boolean") safe.showAverage = patch.showAverage;
+  if (typeof patch.showCountdown === "boolean") safe.showCountdown = patch.showCountdown;
+  if (Array.isArray(patch.customDeck)) {
+    safe.customDeck = patch.customDeck
+      .slice(0, MAX_CUSTOM_DECK_SIZE)
+      .filter((c): c is string => typeof c === "string" && c.length > 0)
+      .map((c) => c.slice(0, MAX_CARD_LENGTH));
+  }
+
+  return safe;
+}
 
 /**
  * Updates room settings. Only the facilitator may change settings.
@@ -333,7 +385,7 @@ export function updateSettings(
 
   const updated: Room = {
     ...room,
-    settings: { ...room.settings, ...patch },
+    settings: { ...room.settings, ...sanitizeSettingsPatch(patch) },
   };
 
   saveRoom(updated);

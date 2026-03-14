@@ -1,6 +1,10 @@
 import { WebSocket, WebSocketServer } from "ws";
 import type { ClientMessage, ServerMessage } from "@planning-poker/shared";
 import {
+  MAX_AVATAR_SEED_LENGTH,
+  WS_MAX_MESSAGES_PER_MINUTE,
+} from "@planning-poker/shared";
+import {
   addIssue,
   castVote,
   createRoom,
@@ -11,14 +15,27 @@ import {
   updateSettings,
 } from "../rooms/roomManager";
 import { getRoom } from "../rooms/roomStore";
+import type { AvatarConfig } from "@planning-poker/shared";
 
-// --- Connection registry ---
+// --- Per-connection state ---
+
+interface ConnectionState {
+  /** Set by CREATE_ROOM / JOIN_ROOM after the player enters a room. */
+  roomId?: string;
+  playerId?: string;
+  /** Heartbeat: set to false on ping, back to true on pong. */
+  isAlive: boolean;
+  /** Rate limiting: message count in the current window. */
+  msgCount: number;
+  /** Rate limiting: start of the current 1-minute window. */
+  msgWindowStart: number;
+}
+
+/** Maps WebSocket instance → per-connection state. */
+const connState = new Map<WebSocket, ConnectionState>();
 
 /** Maps playerId → WebSocket instance for targeted messaging. */
 const playerSockets = new Map<string, WebSocket>();
-
-/** Maps WebSocket instance → { roomId, playerId } for disconnect handling. */
-const socketMeta = new Map<WebSocket, { roomId: string; playerId: string }>();
 
 // --- Helpers ---
 
@@ -58,6 +75,28 @@ function parseMessage(raw: string): ClientMessage | null {
   }
 }
 
+const VALID_AVATAR_STYLES: AvatarConfig["style"][] = [
+  "adventurer",
+  "bottts",
+  "pixel-art",
+  "lorelei",
+];
+
+/**
+ * Validates that a value is a well-formed AvatarConfig.
+ * @param avatar - The value to check.
+ */
+function isValidAvatarConfig(avatar: unknown): avatar is AvatarConfig {
+  return (
+    typeof avatar === "object" &&
+    avatar !== null &&
+    typeof (avatar as AvatarConfig).seed === "string" &&
+    (avatar as AvatarConfig).seed.length > 0 &&
+    (avatar as AvatarConfig).seed.length <= MAX_AVATAR_SEED_LENGTH &&
+    VALID_AVATAR_STYLES.includes((avatar as AvatarConfig).style)
+  );
+}
+
 // --- Message handlers ---
 
 /**
@@ -72,7 +111,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
     return;
   }
 
-  const meta = socketMeta.get(ws);
+  const state = connState.get(ws);
+  const meta = state?.roomId && state.playerId
+    ? { roomId: state.roomId, playerId: state.playerId }
+    : null;
 
   switch (message.type) {
     case "CREATE_ROOM": {
@@ -81,11 +123,22 @@ function handleMessage(ws: WebSocket, raw: string): void {
         send(ws, { type: "ERROR", message: "Player name is required." });
         return;
       }
+      if (!isValidAvatarConfig(avatar)) {
+        send(ws, { type: "ERROR", message: "Invalid avatar configuration." });
+        return;
+      }
 
       const result = createRoom(playerName, avatar);
+      if (typeof result === "string") {
+        send(ws, { type: "ERROR", message: result });
+        return;
+      }
 
       playerSockets.set(result.playerId, ws);
-      socketMeta.set(ws, { roomId: result.room.id, playerId: result.playerId });
+      if (state) {
+        state.roomId = result.room.id;
+        state.playerId = result.playerId;
+      }
 
       send(ws, { type: "ROOM_CREATED", roomId: result.room.id, playerId: result.playerId });
       send(ws, { type: "ROOM_UPDATED", room: result.room });
@@ -98,6 +151,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
         send(ws, { type: "ERROR", message: "Player name is required." });
         return;
       }
+      if (!isValidAvatarConfig(avatar)) {
+        send(ws, { type: "ERROR", message: "Invalid avatar configuration." });
+        return;
+      }
 
       const result = joinRoom(roomId, playerName, avatar);
 
@@ -107,7 +164,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
       }
 
       playerSockets.set(result.playerId, ws);
-      socketMeta.set(ws, { roomId: result.room.id, playerId: result.playerId });
+      if (state) {
+        state.roomId = result.room.id;
+        state.playerId = result.playerId;
+      }
 
       send(ws, { type: "ROOM_CREATED", roomId: result.room.id, playerId: result.playerId });
       broadcast(result.room.players.map((p) => p.id), { type: "ROOM_UPDATED", room: result.room });
@@ -163,6 +223,9 @@ function handleMessage(ws: WebSocket, raw: string): void {
       if (!meta) return;
       const { emoji, targetPlayerId } = message;
 
+      // Sanity-check emoji length to prevent oversized payloads being relayed
+      if (typeof emoji !== "string" || emoji.length > 10) return;
+
       const room = getRoom(meta.roomId);
       if (!room) return;
       broadcast(room.players.map((p) => p.id), {
@@ -203,14 +266,14 @@ function handleMessage(ws: WebSocket, raw: string): void {
  * @param ws - The disconnected WebSocket connection.
  */
 function handleDisconnect(ws: WebSocket): void {
-  const meta = socketMeta.get(ws);
-  if (!meta) return;
+  const state = connState.get(ws);
+  connState.delete(ws);
 
-  const { roomId, playerId } = meta;
-  socketMeta.delete(ws);
-  playerSockets.delete(playerId);
+  if (!state?.roomId || !state.playerId) return;
 
-  const updated = leaveRoom(roomId, playerId);
+  playerSockets.delete(state.playerId);
+
+  const updated = leaveRoom(state.roomId, state.playerId);
   if (updated) {
     broadcast(updated.players.map((p) => p.id), { type: "ROOM_UPDATED", room: updated });
   }
@@ -218,13 +281,60 @@ function handleDisconnect(ws: WebSocket): void {
 
 // --- Server setup ---
 
+/** Heartbeat interval: ping all connected clients every 30 seconds. */
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
 /**
  * Attaches the WebSocket message/disconnect handlers to the given server.
  * @param wss - The WebSocketServer instance to attach to.
  */
 export function attachWebSocketHandler(wss: WebSocketServer): void {
+  // Ping all clients periodically; terminate unresponsive ones
+  const heartbeatTimer = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      const state = connState.get(ws);
+      if (!state) return;
+      if (!state.isAlive) {
+        ws.terminate();
+        return;
+      }
+      state.isAlive = false;
+      ws.ping();
+    });
+  }, HEARTBEAT_INTERVAL_MS);
+
+  wss.on("close", () => clearInterval(heartbeatTimer));
+
   wss.on("connection", (ws: WebSocket) => {
-    ws.on("message", (data) => handleMessage(ws, data.toString()));
+    connState.set(ws, {
+      isAlive: true,
+      msgCount: 0,
+      msgWindowStart: Date.now(),
+    });
+
+    ws.on("pong", () => {
+      const state = connState.get(ws);
+      if (state) state.isAlive = true;
+    });
+
+    ws.on("message", (data) => {
+      const state = connState.get(ws);
+      if (state) {
+        // Sliding-window rate limit: reset counter every minute
+        const now = Date.now();
+        if (now - state.msgWindowStart > 60_000) {
+          state.msgCount = 0;
+          state.msgWindowStart = now;
+        }
+        state.msgCount++;
+        if (state.msgCount > WS_MAX_MESSAGES_PER_MINUTE) {
+          send(ws, { type: "ERROR", message: "Rate limit exceeded. Please slow down." });
+          return;
+        }
+      }
+      handleMessage(ws, data.toString());
+    });
+
     ws.on("close", () => handleDisconnect(ws));
     ws.on("error", () => handleDisconnect(ws));
   });
