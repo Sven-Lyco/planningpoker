@@ -52,6 +52,7 @@ app.get("/health", (_req, res) => {
 app.get("/api/emojis", getEmojis);
 
 /** Serve React SPA static files. */
+logger.info({ staticDir: STATIC_DIR }, "Serving static files");
 app.use(express.static(STATIC_DIR));
 
 /** SPA fallback – let React Router handle all non-API routes. */

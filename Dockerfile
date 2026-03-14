@@ -38,6 +38,7 @@ COPY --from=builder /app/frontend/dist ./frontend/dist
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV STATIC_DIR=/app/frontend/dist
 EXPOSE 3001
 
 CMD ["node", "backend/dist/index.js"]
