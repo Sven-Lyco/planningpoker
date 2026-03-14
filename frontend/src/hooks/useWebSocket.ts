@@ -5,7 +5,16 @@ import { setPlayerId } from "../store/playerSlice";
 import { clearRoom, updateRoom } from "../store/roomSlice";
 import { addReaction } from "../store/reactionsSlice";
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:3001/ws";
+// In production the frontend is served by the same Express server, so derive
+// the WebSocket URL from the current page origin (http→ws, https→wss).
+// Override with VITE_WS_URL at build time if needed.
+function resolveWsUrl(): string {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL as string;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/ws`;
+}
+
+const WS_URL = resolveWsUrl();
 const RECONNECT_DELAY_MS = 3000;
 
 /**
