@@ -1,14 +1,42 @@
 import { useState, useEffect } from "react";
 import styled from "@emotion/styled";
-import type { AvatarConfig } from "@planning-poker/shared";
+import type { AvatarConfig, RoomSettings, VotingSystem } from "@planning-poker/shared";
+import { VOTING_SYSTEMS } from "@planning-poker/shared";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setLocalIdentity } from "../store/playerSlice";
 import { Avatar } from "../components/ui/Avatar";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import type { ClientMessage } from "@planning-poker/shared";
+import type { AppTheme } from "../styles/theme";
 
 const AVATAR_STYLES: AvatarConfig["style"][] = ["adventurer", "bottts", "pixel-art", "lorelei"];
+
+const VOTING_SYSTEM_LABELS: Record<VotingSystem, string> = {
+  fibonacci: "Fibonacci",
+  "modified-fibonacci": "Modified Fibonacci",
+  tshirts: "T-Shirts",
+  "powers-of-2": "Powers of 2",
+  custom: "Custom",
+};
+
+const VOTING_SYSTEM_PREVIEW: Record<VotingSystem, string> = {
+  fibonacci: "0, 1, 2, 3, 5, 8, 13…",
+  "modified-fibonacci": "0, ½, 1, 2, 3, 5, 8…",
+  tshirts: "XS, S, M, L, XL",
+  "powers-of-2": "0, 1, 2, 4, 8, 16…",
+  custom: "Define your own cards",
+};
+
+type InitialSettings = Pick<RoomSettings, "votingSystem" | "whoCanReveal" | "autoReveal" | "funFeatures" | "showAverage">;
+
+const DEFAULT_INITIAL_SETTINGS: InitialSettings = {
+  votingSystem: "fibonacci",
+  whoCanReveal: "host",
+  autoReveal: false,
+  funFeatures: true,
+  showAverage: true,
+};
 
 interface LobbyScreenProps {
   send: (message: ClientMessage) => void;
@@ -30,6 +58,11 @@ export function LobbyScreen({ send }: LobbyScreenProps) {
   const [mode, setMode] = useState<"create" | "join">(urlRoomId ? "join" : "create");
   const [roomId, setRoomId] = useState(urlRoomId);
   const [error, setError] = useState("");
+  const [settings, setSettings] = useState<InitialSettings>(DEFAULT_INITIAL_SETTINGS);
+
+  const updateSetting = <K extends keyof InitialSettings>(key: K, value: InitialSettings[K]) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
 
   const avatar: AvatarConfig = { style: avatarStyle, seed: avatarSeed };
 
@@ -45,7 +78,7 @@ export function LobbyScreen({ send }: LobbyScreenProps) {
   const handleCreate = () => {
     if (!name.trim()) { setError("Please enter your name."); return; }
     setError("");
-    send({ type: "CREATE_ROOM", playerName: name.trim(), avatar });
+    send({ type: "CREATE_ROOM", playerName: name.trim(), avatar, settings });
   };
 
   const handleJoin = () => {
@@ -94,6 +127,86 @@ export function LobbyScreen({ send }: LobbyScreenProps) {
           <Tab active={mode === "join"} onClick={() => setMode("join")}>Join room</Tab>
         </Tabs>
 
+        {mode === "create" && (
+          <>
+            <Section>
+              <Label>Voting system</Label>
+              <VotingSystemGrid>
+                {(Object.keys(VOTING_SYSTEMS) as VotingSystem[]).map((vs) => (
+                  <VotingSystemOption
+                    key={vs}
+                    isSelected={settings.votingSystem === vs}
+                    onClick={() => updateSetting("votingSystem", vs)}
+                  >
+                    <VSName>{VOTING_SYSTEM_LABELS[vs]}</VSName>
+                    <VSPreview>{VOTING_SYSTEM_PREVIEW[vs]}</VSPreview>
+                  </VotingSystemOption>
+                ))}
+              </VotingSystemGrid>
+            </Section>
+
+            <Section>
+              <Label>Who can reveal cards</Label>
+              <SegmentControl>
+                <Segment
+                  active={settings.whoCanReveal === "host"}
+                  onClick={() => updateSetting("whoCanReveal", "host")}
+                >
+                  Host only
+                </Segment>
+                <Segment
+                  active={settings.whoCanReveal === "all"}
+                  onClick={() => updateSetting("whoCanReveal", "all")}
+                >
+                  Everyone
+                </Segment>
+              </SegmentControl>
+            </Section>
+
+            <Section>
+              <Label>Features</Label>
+              <ToggleList>
+                <ToggleRow>
+                  <ToggleLabelGroup>
+                    <span>Auto-reveal</span>
+                    <small>Reveal when all players voted</small>
+                  </ToggleLabelGroup>
+                  <ToggleTrack
+                    checked={settings.autoReveal}
+                    onClick={() => updateSetting("autoReveal", !settings.autoReveal)}
+                  >
+                    <ToggleThumb checked={settings.autoReveal} />
+                  </ToggleTrack>
+                </ToggleRow>
+                <ToggleRow>
+                  <ToggleLabelGroup>
+                    <span>Show average</span>
+                    <small>Display numeric average after reveal</small>
+                  </ToggleLabelGroup>
+                  <ToggleTrack
+                    checked={settings.showAverage}
+                    onClick={() => updateSetting("showAverage", !settings.showAverage)}
+                  >
+                    <ToggleThumb checked={settings.showAverage} />
+                  </ToggleTrack>
+                </ToggleRow>
+                <ToggleRow>
+                  <ToggleLabelGroup>
+                    <span>Fun features</span>
+                    <small>Emoji reactions between players</small>
+                  </ToggleLabelGroup>
+                  <ToggleTrack
+                    checked={settings.funFeatures}
+                    onClick={() => updateSetting("funFeatures", !settings.funFeatures)}
+                  >
+                    <ToggleThumb checked={settings.funFeatures} />
+                  </ToggleTrack>
+                </ToggleRow>
+              </ToggleList>
+            </Section>
+          </>
+        )}
+
         {mode === "join" && (
           <Section>
             <Label>Room ID</Label>
@@ -124,9 +237,9 @@ export function LobbyScreen({ send }: LobbyScreenProps) {
 const Page = styled.div`
   min-height: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.xl} ${({ theme }) => theme.spacing.lg};
 `;
 
 const LobbyCard = styled.div`
@@ -226,4 +339,119 @@ const ErrorText = styled.p`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   color: ${({ theme }) => theme.colors.warning};
   text-align: center;
+`;
+
+const VotingSystemGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const VotingSystemOption = styled.button<{ isSelected: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.radii.md};
+  border: 2px solid
+    ${({ isSelected, theme }) => isSelected ? theme.colors.primary : theme.colors.card};
+  background-color: ${({ isSelected, theme }) =>
+    isSelected ? `${theme.colors.primary}22` : theme.colors.card};
+  cursor: pointer;
+  text-align: left;
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const VSName = styled.span`
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const VSPreview = styled.span`
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const SegmentControl = styled.div`
+  display: flex;
+  background-color: ${({ theme }) => theme.colors.card};
+  border-radius: ${({ theme }) => theme.radii.md};
+  padding: 3px;
+  gap: 3px;
+`;
+
+const Segment = styled.button<{ active: boolean }>`
+  flex: 1;
+  padding: 7px ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  background-color: ${({ active, theme }) => active ? theme.colors.primary : "transparent"};
+  color: ${({ active, theme }) =>
+    active ? theme.colors.textPrimary : theme.colors.textSecondary};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+`;
+
+const ToggleList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const ToggleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const ToggleLabelGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  span {
+    font-size: ${({ theme }) => (theme as AppTheme).fontSizes.md};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+
+  small {
+    font-size: ${({ theme }) => (theme as AppTheme).fontSizes.sm};
+    color: ${({ theme }) => theme.colors.textSecondary};
+  }
+`;
+
+const ToggleTrack = styled.div<{ checked: boolean }>`
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: ${({ checked, theme }) =>
+    checked ? theme.colors.primary : theme.colors.card};
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color ${({ theme }) => theme.transitions.fast};
+`;
+
+const ToggleThumb = styled.div<{ checked: boolean }>`
+  position: absolute;
+  top: 3px;
+  left: ${({ checked }) => (checked ? "23px" : "3px")};
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: white;
+  transition: left ${({ theme }) => theme.transitions.fast};
 `;

@@ -3,6 +3,7 @@ import type { Card } from "@planning-poker/shared";
 
 interface StatsProps {
   votes: Record<string, Card | null>;
+  showAverage?: boolean;
 }
 
 /** Cards that are not numeric (excluded from average). */
@@ -52,7 +53,7 @@ function computeStats(votes: Record<string, Card | null>) {
  * Displays voting statistics after cards are revealed.
  * Shows vertical vote bars on the left and average/agreement on the right.
  */
-export function Stats({ votes }: StatsProps) {
+export function Stats({ votes, showAverage = true }: StatsProps) {
   const { average, agreement, sortedEntries, maxCount, totalVotes } =
     computeStats(votes);
 
@@ -75,7 +76,7 @@ export function Stats({ votes }: StatsProps) {
       <Divider />
 
       <SidePanel>
-        {average !== null && (
+        {showAverage && average !== null && (
           <SideBlock>
             <SideLabel>Average:</SideLabel>
             <AverageValue>{average.toLocaleString("de-DE")}</AverageValue>

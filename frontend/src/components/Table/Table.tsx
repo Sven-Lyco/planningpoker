@@ -51,8 +51,10 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: Ta
   const { top, left, right, bottom } = distributeAroundTable(otherPlayers);
 
   const isFacilitator = currentPlayerId === settings.facilitatorId;
+  const anyVoted = Object.values(currentVotes).some((v) => v !== null);
   const canReveal =
     phase === "voting" &&
+    anyVoted &&
     (settings.whoCanReveal === "all" || isFacilitator);
 
   const renderSeat = (p: Player) => (
@@ -62,7 +64,7 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: Ta
       vote={currentVotes[p.id]}
       isRevealed={phase === "reveal"}
       isCurrentPlayer={false}
-      send={send}
+      send={settings.funFeatures ? send : undefined}
     />
   );
 
@@ -108,7 +110,7 @@ export function Table({ room, currentPlayerId, onReveal, onNewVoting, send }: Ta
 
             {phase === "reveal" && (
               <>
-                <Stats votes={currentVotes} />
+                <Stats votes={currentVotes} showAverage={settings.showAverage} />
                 {isFacilitator && (
                   <Button
                     onClick={onNewVoting}

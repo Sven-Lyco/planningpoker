@@ -128,7 +128,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         return;
       }
 
-      const result = createRoom(playerName, avatar);
+      const result = createRoom(playerName, avatar, message.settings);
       if (typeof result === "string") {
         send(ws, { type: "ERROR", message: result });
         return;

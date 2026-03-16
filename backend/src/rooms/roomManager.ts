@@ -34,6 +34,48 @@ export type PlayerConnectionMap = Map<string, string>;
 
 // --- Helpers ---
 
+const VALID_VOTING_SYSTEMS: VotingSystem[] = [
+  "fibonacci",
+  "modified-fibonacci",
+  "tshirts",
+  "powers-of-2",
+  "custom",
+];
+
+/**
+ * Strips unknown keys and validates values in a settings patch.
+ * Prevents injection of arbitrary fields or out-of-range values.
+ * @param patch - Raw partial settings from the client.
+ */
+function sanitizeSettingsPatch(patch: Partial<RoomSettings>): Partial<RoomSettings> {
+  const safe: Partial<RoomSettings> = {};
+
+  if (patch.name !== undefined && typeof patch.name === "string") {
+    safe.name = patch.name.trim().slice(0, MAX_GAME_NAME_LENGTH);
+  }
+  if (patch.votingSystem !== undefined && VALID_VOTING_SYSTEMS.includes(patch.votingSystem)) {
+    safe.votingSystem = patch.votingSystem;
+  }
+  if (patch.whoCanReveal === "all" || patch.whoCanReveal === "host") {
+    safe.whoCanReveal = patch.whoCanReveal;
+  }
+  if (patch.whoCanManageIssues === "all" || patch.whoCanManageIssues === "host") {
+    safe.whoCanManageIssues = patch.whoCanManageIssues;
+  }
+  if (typeof patch.autoReveal === "boolean") safe.autoReveal = patch.autoReveal;
+  if (typeof patch.funFeatures === "boolean") safe.funFeatures = patch.funFeatures;
+  if (typeof patch.showAverage === "boolean") safe.showAverage = patch.showAverage;
+  if (typeof patch.showCountdown === "boolean") safe.showCountdown = patch.showCountdown;
+  if (Array.isArray(patch.customDeck)) {
+    safe.customDeck = patch.customDeck
+      .slice(0, MAX_CUSTOM_DECK_SIZE)
+      .filter((c): c is string => typeof c === "string" && c.length > 0)
+      .map((c) => c.slice(0, MAX_CARD_LENGTH));
+  }
+
+  return safe;
+}
+
 /**
  * Generates the default room settings for a newly created room.
  * @param facilitatorId - The player ID of the initial host/facilitator.
@@ -42,12 +84,12 @@ function defaultSettings(facilitatorId: string): RoomSettings {
   return {
     facilitatorId,
     votingSystem: "fibonacci",
-    whoCanReveal: "all",
+    whoCanReveal: "host",
     whoCanManageIssues: "all",
     autoReveal: false,
     funFeatures: true,
     showAverage: true,
-    showCountdown: true,
+    showCountdown: false,
   };
 }
 
@@ -68,11 +110,13 @@ export function getActiveDeck(settings: RoomSettings): Card[] {
  * Creates a new room with the given host player.
  * @param playerName - Display name of the host.
  * @param avatar - Avatar configuration chosen by the host.
+ * @param initialSettings - Optional settings to apply on top of the defaults.
  * @returns The created room and the host's player ID.
  */
 export function createRoom(
   playerName: string,
-  avatar: AvatarConfig
+  avatar: AvatarConfig,
+  initialSettings?: Partial<RoomSettings>
 ): CreateRoomResult | string {
   if (getRoomCount() >= MAX_ROOMS) return "Server is at capacity. Please try again later.";
 
@@ -95,7 +139,10 @@ export function createRoom(
     currentVotes: {},
     timer: 0,
     issues: [],
-    settings: defaultSettings(playerId),
+    settings: {
+      ...defaultSettings(playerId),
+      ...(initialSettings ? sanitizeSettingsPatch(initialSettings) : {}),
+    },
   };
 
   saveRoom(room);
@@ -321,48 +368,6 @@ export function addIssue(
 }
 
 // --- Settings ---
-
-const VALID_VOTING_SYSTEMS: VotingSystem[] = [
-  "fibonacci",
-  "modified-fibonacci",
-  "tshirts",
-  "powers-of-2",
-  "custom",
-];
-
-/**
- * Strips unknown keys and validates values in a settings patch.
- * Prevents injection of arbitrary fields or out-of-range values.
- * @param patch - Raw partial settings from the client.
- */
-function sanitizeSettingsPatch(patch: Partial<RoomSettings>): Partial<RoomSettings> {
-  const safe: Partial<RoomSettings> = {};
-
-  if (patch.name !== undefined && typeof patch.name === "string") {
-    safe.name = patch.name.trim().slice(0, MAX_GAME_NAME_LENGTH);
-  }
-  if (patch.votingSystem !== undefined && VALID_VOTING_SYSTEMS.includes(patch.votingSystem)) {
-    safe.votingSystem = patch.votingSystem;
-  }
-  if (patch.whoCanReveal === "all" || patch.whoCanReveal === "host") {
-    safe.whoCanReveal = patch.whoCanReveal;
-  }
-  if (patch.whoCanManageIssues === "all" || patch.whoCanManageIssues === "host") {
-    safe.whoCanManageIssues = patch.whoCanManageIssues;
-  }
-  if (typeof patch.autoReveal === "boolean") safe.autoReveal = patch.autoReveal;
-  if (typeof patch.funFeatures === "boolean") safe.funFeatures = patch.funFeatures;
-  if (typeof patch.showAverage === "boolean") safe.showAverage = patch.showAverage;
-  if (typeof patch.showCountdown === "boolean") safe.showCountdown = patch.showCountdown;
-  if (Array.isArray(patch.customDeck)) {
-    safe.customDeck = patch.customDeck
-      .slice(0, MAX_CUSTOM_DECK_SIZE)
-      .filter((c): c is string => typeof c === "string" && c.length > 0)
-      .map((c) => c.slice(0, MAX_CARD_LENGTH));
-  }
-
-  return safe;
-}
 
 /**
  * Updates room settings. Only the facilitator may change settings.

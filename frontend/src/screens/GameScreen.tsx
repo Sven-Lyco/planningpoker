@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import styled from "@emotion/styled";
-import type { ClientMessage } from "@planning-poker/shared";
+import type { ClientMessage, RoomSettings } from "@planning-poker/shared";
 import { VOTING_SYSTEMS } from "@planning-poker/shared";
 import { useAppSelector } from "../store/hooks";
 import { Header } from "../components/Header/Header";
 import { Table } from "../components/Table/Table";
 import { CardDeck } from "../components/CardDeck/CardDeck";
 import { Reactions } from "../components/Reactions/Reactions";
+import { SettingsModal } from "../components/Settings/SettingsModal";
 
 interface GameScreenProps {
   send: (message: ClientMessage) => void;
@@ -21,6 +22,7 @@ export function GameScreen({ send }: GameScreenProps) {
   const playerId = useAppSelector((state) => state.player.playerId);
 
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Reset card selection whenever a new voting round starts
   useEffect(() => {
@@ -29,9 +31,25 @@ export function GameScreen({ send }: GameScreenProps) {
     }
   }, [room?.phase]);
 
+  // Auto-reveal: when enabled and all players have voted, the facilitator triggers reveal
+  useEffect(() => {
+    if (!room || !playerId) return;
+    const { phase, settings, currentVotes, players } = room;
+    if (
+      phase === "voting" &&
+      settings.autoReveal &&
+      playerId === settings.facilitatorId &&
+      players.length > 0 &&
+      players.every((p) => currentVotes[p.id] !== null && currentVotes[p.id] !== undefined)
+    ) {
+      send({ type: "REVEAL_CARDS" });
+    }
+  }, [room, playerId, send]);
+
   if (!room || !playerId) return null;
 
   const currentPlayer = room.players.find((p) => p.id === playerId) ?? null;
+  const isFacilitator = playerId === room.settings.facilitatorId;
 
   const activeDeck =
     room.settings.votingSystem === "custom"
@@ -52,9 +70,17 @@ export function GameScreen({ send }: GameScreenProps) {
     send({ type: "NEW_VOTING" });
   };
 
+  const handleUpdateSettings = (settings: Partial<RoomSettings>) => {
+    send({ type: "UPDATE_SETTINGS", settings });
+  };
+
   return (
     <Screen>
-      <Header room={room} currentPlayer={currentPlayer} />
+      <Header
+        room={room}
+        currentPlayer={currentPlayer}
+        onSettingsClick={isFacilitator ? () => setIsSettingsOpen(true) : undefined}
+      />
 
       <MainArea>
         <Reactions />
@@ -76,6 +102,13 @@ export function GameScreen({ send }: GameScreenProps) {
           />
         )}
       </BottomBar>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleUpdateSettings}
+        currentSettings={room.settings}
+      />
     </Screen>
   );
 }

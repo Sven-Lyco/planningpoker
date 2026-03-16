@@ -7,12 +7,14 @@ import type { Player, Room } from "@planning-poker/shared";
 interface HeaderProps {
   room: Room;
   currentPlayer: Player | null;
+  /** Called when the settings button is clicked. Only shown when provided. */
+  onSettingsClick?: () => void;
 }
 
 /**
- * Top bar showing room info, player count, and invite link copy button.
+ * Top bar showing room info, player count, invite link copy button, and settings.
  */
-export function Header({ room, currentPlayer }: HeaderProps) {
+export function Header({ room, currentPlayer, onSettingsClick }: HeaderProps) {
   const inviteUrl = `${window.location.origin}?room=${room.id}`;
 
   const copyInvite = () => {
@@ -42,6 +44,11 @@ export function Header({ room, currentPlayer }: HeaderProps) {
         <Button variant="secondary" size="sm" onClick={copyInvite}>
           Copy invite link
         </Button>
+        {onSettingsClick && (
+          <Button variant="ghost" size="sm" onClick={onSettingsClick} title="Room settings">
+            ⚙️
+          </Button>
+        )}
         {currentPlayer && (
           <CurrentPlayer>
             <Avatar config={currentPlayer.avatar} size={32} />

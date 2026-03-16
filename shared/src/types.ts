@@ -61,7 +61,7 @@ export interface Room {
 }
 
 export type ClientMessage =
-  | { type: "CREATE_ROOM"; playerName: string; avatar: AvatarConfig }
+  | { type: "CREATE_ROOM"; playerName: string; avatar: AvatarConfig; settings?: Partial<Omit<RoomSettings, "facilitatorId">> }
   | { type: "JOIN_ROOM"; roomId: string; playerName: string; avatar: AvatarConfig }
   | { type: "VOTE"; card: Card }
   | { type: "REVEAL_CARDS" }

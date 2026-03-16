@@ -33,7 +33,7 @@ Kein Datenbankzustand – alles In-Memory auf dem Server.
 
 ## Projektstruktur
 
-```
+```text
 planning-poker/
 ├── CLAUDE.md
 ├── shared/
@@ -87,21 +87,25 @@ planning-poker/
 - Lobby (Name + Avatar wählen, Raum erstellen/joinen per Link)
 - Spielphasen: waiting → voting → reveal → new round
 - Karten-Deck (Fibonacci default, mehrere VotingSystems im Backend)
-- Reveal-Statistiken: vertikale Stimmenbalken pro Karte, Average, Agreement-Emoji
-- Emoji-Reaktionen: Hover-Bar über Spieler (CSS :hover), 4 Slots + Picker
+- Reveal-Statistiken: vertikale Stimmenbalken pro Karte, Average (schaltbar), Agreement-Emoji
+- Emoji-Reaktionen: Hover-Bar über Spieler (CSS :hover), 4 Slots + Picker; schaltbar via `funFeatures`
 - Emoji-Picker: Daten vom Backend (unicode-emoji-json), Name-Suche, Portal-Rendering
 - Physik-Animation: Arc-Flug → Impact/Squash → Bounce → Fall
-- `funFeatures`-Flag in RoomSettings (steuert Reaktions-Feature)
-- `UPDATE_SETTINGS` WS-Message + Backend-Handler
+- **Room Settings** – vollständig implementiert (Lobby + In-Game):
+  - `CREATE_ROOM` übergibt initial settings; Backend wendet sie atomar beim Erstellen an
+  - Settings Modal (⚙️ im Header, nur für Facilitator): VotingSystem, whoCanReveal, autoReveal, showAverage, funFeatures
+  - Lobby "Create room"-Tab: gleiche Settings vor Raumerstellung konfigurierbar
+  - `UPDATE_SETTINGS` WS-Message + Backend-Handler für Änderungen im laufenden Spiel
+- **Reveal-Button-Logik**: nur sichtbar wenn mind. 1 Karte gewählt; sichtbar gemäß `whoCanReveal`-Setting
+- Auto-Reveal: Backend löst Reveal aus wenn alle Spieler abgestimmt haben und `autoReveal === true`
 
 ### ❌ Noch offen (Reihenfolge nach Priorität)
 
-1. **Settings Modal** – VotingSystem-Picker, whoCanReveal, autoReveal, showAverage, showCountdown, funFeatures-Toggle; `UPDATE_SETTINGS` ist im Backend bereits implementiert
-2. **Sidebar** – einklappbare Issues-Liste; `ADD_ISSUE` ist im Backend bereits implementiert
-3. **Avatar Dropdown** – im Header: Name + Avatar ändern
-4. **Timer** – im Header anzeigen; `timer`-Feld existiert auf `Room` im Backend
-5. **Custom Deck** – UI für eigene Kartenwerte wenn `votingSystem === "custom"`
-6. **React Component Tests** – Vitest für Komponenten (laut Coding-Konventionen gefordert)
+1. **Sidebar** – einklappbare Issues-Liste; `ADD_ISSUE` + `whoCanManageIssues` sind im Backend bereits implementiert
+2. **Avatar Dropdown** – im Header: Name + Avatar ändern
+3. **Timer** – im Header anzeigen; `timer`-Feld existiert auf `Room` im Backend; `showCountdown`-Setting ist vorbereitet aber hat noch keine UI
+4. **Custom Deck** – UI für eigene Kartenwerte wenn `votingSystem === "custom"`
+5. **React Component Tests** – Vitest für Komponenten (laut Coding-Konventionen gefordert)
 
 ### 🐛 Bekannte Bugs
 
