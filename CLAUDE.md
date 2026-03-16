@@ -109,7 +109,7 @@ planning-poker/
 
 ### 🐛 Bekannte Bugs
 
-- **Reaktionsbar in Firefox** – funktioniert in Chrome, nicht in Firefox; Hard-Reload hat nicht geholfen; Root Cause unbekannt
+Keine bekannten Bugs.
 
 ---
 
