@@ -19,7 +19,7 @@ Kein Datenbankzustand – alles In-Memory auf dem Server.
 
 ### Backend (`/backend`)
 
-- Node.js 20 LTS + Express 4
+- Node.js 24 LTS + Express 4
 - TypeScript 5
 - ws (WebSocket Server)
 - In-Memory Store (kein DB)
