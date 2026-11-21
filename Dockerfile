@@ -1,7 +1,7 @@
 # ── Stage 1: Build ─────────────────────────────────────────────────────────────
 # Exact Node.js release, so a build can never fall back to an older cached image.
 # Dependabot (.github/dependabot.yml) opens a pull request for newer 24.x releases.
-FROM node:24.22.2-alpine AS builder
+FROM node:24.22.3-alpine AS builder
 WORKDIR /app
 
 # Copy manifests first for layer-cached dependency install
@@ -20,7 +20,7 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # ── Stage 2: Production image ───────────────────────────────────────────────────
-FROM node:24.22.2-alpine
+FROM node:24.22.3-alpine
 WORKDIR /app
 
 # Security fixes for Alpine packages that are newer than the base image
